@@ -144,7 +144,8 @@ function processPRWeb($time, $url_value) {
 
                 $article = pq($art);
 
-                $article_href = $article->find('article.article-box > a.qa-link-to-release')->attr('href');
+                //$article_href = $article->find('article.article-box > a.qa-link-to-release')->attr('href');
+                $article_href = $article->find('article.article-box > a:first')->attr('href');
 
                 // Get url response code to check if it is valid
                 //if (get_http_response_code($targetUrl) === '404' || get_http_response_code($targetUrl) === '400') {
