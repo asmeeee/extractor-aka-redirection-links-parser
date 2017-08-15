@@ -341,3 +341,28 @@ function downloadAurigaProfilesPage($url, $sleep) {
 
     return $profiles;
 }
+
+/* AppleGate */
+function collectAppleGateArticlesPages($sourceUrl, $sleep) {
+    // Full articles urls
+    $urls = array();
+
+    // Being not obvious
+    sleep($sleep);
+
+    // Download the page
+    $categoryPage = download($sourceUrl);
+
+    // Inject phpQuery into downloaded page
+    $document = phpQuery::newDocument($categoryPage);
+
+    // Fetch the highest pagination value
+    $totalPaginationElements = $document->find('ol.page-selector > li')->count();
+    $highestPaginationValue = $document->find('ol.page-selector > li')->eq($totalPaginationElements - 2)->text();
+
+    for ($i = 1; $i <= trim($highestPaginationValue); $i++) {
+        array_push($urls, $sourceUrl . "?page={$i}&size=1000");
+    }
+
+    return $urls;
+}

@@ -50,6 +50,7 @@
                     <option value="proz">PROZ</option>
                     <option value="getapp">GetApp</option>
                     <option value="auriga">Agenzia ICE (auriga.ice.it)</option>
+                    <option value="applegate">Applegate Suppliers</option>
                 </select>
             </div>
 
@@ -114,6 +115,41 @@
                     </div>
                 </form>
             </div>
+
+            <div id="applegate" class="source" style="display: none;">
+                <form action="functions/process.php" method="post" class="form-inline">
+                    <div class="form-group" style="margin-right: 10px;">
+                        <label for="applegate_url">Enter the URL for applegate.co.uk</label>
+
+                        <input
+                            name="url[applegate]"
+                            id="applegate_url"
+                            class="form-control"
+                            placeholder="https://www.applegate.co.uk/supplier-index/"
+                            value="https://www.applegate.co.uk/supplier-index/"
+                            style="width: 400px;" readonly />
+                    </div>
+
+                    <div class="form-group">
+                        <label for="applegate_category">Select the category</label>
+
+                        <select name="category" id="applegate_category" class="form-control">
+                            <?php
+                                $alphas = range('a', 'z');
+                                array_push($alphas, "%23");
+
+                                foreach ($alphas as $category) {
+                                    echo "<option value='{$category}'>{$category}</option>";
+                                }
+                            ?>
+                        </select>
+                    </div>
+
+                    <div class="form-group" style="margin-left: 10px;">
+                        <input type="submit" class="btn btn-primary">
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
 </section>
@@ -144,7 +180,9 @@
                 $source = $('.source');
 
             $alert.slideDown();
+
             $source.slideUp();
+
             $('#' + $this.val()).slideDown();
         });
     });

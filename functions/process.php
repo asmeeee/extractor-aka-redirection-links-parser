@@ -44,6 +44,11 @@ switch ($url_key) {
         processAuriga($time, $url_value);
         break;
     }
+
+    case 'applegate': {
+        processAppleGate($time, $url_value);
+        break;
+    }
 }
 
 // Process functions
@@ -640,4 +645,168 @@ function processAuriga($time, $url_value) {
     echo "<br /> <b>Emails: </b>" . $summary['emails'];
     echo "<br /> <b>Website links: </b>" . $summary['website_links'];
     echo "<br /> <b>Runtime total: </b>" . $summary['time'] . " seconds.";
+}
+
+function processAppleGate($time, $url_value) {
+    global $pdo;
+
+    // Show progress?
+    $showProgress = false;
+
+    // Progress
+    if ($showProgress) {
+        // Progress template
+        //echo '<span id="progress-category" style="font-weight: bold; font-size: 22px;"></span>';
+        echo '<span id="progress-page" style="font-weight: bold; font-size: 22px;"></span>';
+        echo '<span id="progress-article" style="font-weight: bold; font-size: 22px;"></span>';
+
+        // Categories increment
+        $k = 0;
+    }
+
+    // Sleep timer before each request
+    $sleep = 1;
+
+    // Start URL not being empty
+    $postUrl = $url_value;
+
+    if (empty($postUrl)) die('URL is empty');
+
+    // Add https://www. to the url -> https://www.domain.com/...
+    $sourceUrl = parse_url($postUrl);
+    $sourceUrl = preg_replace('#^www\.(.+\.)#i', '$1', $sourceUrl['host'] . $sourceUrl['path']);
+    $sourceUrl = 'https://www.' . $sourceUrl;
+
+    // Remove index.html, index.htm, index.php from the url
+    $filters = array('index.htm', 'index.html', 'index.php');
+    $sourceUrl = str_replace($filters, "", $sourceUrl);
+
+    // Add ending slash
+    substr($sourceUrl, -1) != '/' ? $sourceUrl .= '/' : '';
+
+    // Get homepage
+    $sourceHomepage = parse_url($sourceUrl);
+    $sourceHomepage = $sourceHost = preg_replace('#^www\.(.+\.)#i', '$1', $sourceHomepage['host']);
+    $sourceHomepage = 'https://www.' . $sourceHomepage . '/';
+
+    /*// Set the alphabet letters which represent the articles categories
+    $alphas = range('a', 'z');
+    array_push($alphas, "%23");
+
+    // Categories count
+    $counter_categories = count($alphas);
+
+    // Parse each category
+    foreach ($alphas as $category) {
+        if ($showProgress) {
+            // Articles page increment
+            $i = 0;
+
+            // Progress category
+            isset($k) ? $k++ : $k = 0;
+
+            echo "<script id='progress-category-script'>
+                    document.getElementById('progress-category').innerHTML = 'Category ' + $k + ' of ' + $counter_categories + ' categories... <br />';
+                    document.body.removeChild(document.getElementById('progress-category-script'));
+                  </script>";
+
+            flush();
+        }
+    }*/
+
+    $category = $_POST['category'];
+
+    $categoryHref = $sourceUrl . $category;
+
+    $articlesPagesUrls = collectAppleGateArticlesPages($categoryHref, $sleep);
+
+    // Pages with articles count
+    $counter_pages = count($articlesPagesUrls);
+
+    // Articles page increment
+    $i = 0;
+
+    foreach ($articlesPagesUrls as $articlesPageUrl) {
+        if ($showProgress) {
+            // Articles increment
+            $j = 0;
+
+            // Progress page
+            isset($i) ? $i++ : $i = 0;
+
+            echo "<script id='progress-page-script'>
+                    document.getElementById('progress-page').innerHTML = 'Page ' + $i + ' of ' + $counter_pages + ' pages... <br />';
+                    document.body.removeChild(document.getElementById('progress-page-script'));
+                  </script>";
+
+            flush();
+        }
+
+        sleep($sleep);
+
+        $sourcePage = download($articlesPageUrl);
+
+        $page_document = phpQuery::newDocument($sourcePage);
+
+        $articles = $page_document->find('ul.supplier-list > li.supplier');
+
+        // Articles per page count
+        $counter_articles = count($articles);
+
+        foreach ($articles as $article) {
+            if ($showProgress) {
+                // Progress article
+                isset($j) ? $j++ : $j = 0;
+
+                echo "<script id='progress-article-script'>
+                            document.getElementById('progress-article').innerHTML = 'Article ' + $j + ' of page ' + $i + ' of ' + $counter_articles + ' articles... <br />';
+                            document.body.removeChild(document.getElementById('progress-article-script'));
+                          </script>";
+
+                flush();
+            }
+
+            // Fetch article data
+            $article_query = pq($article);
+
+            // Article title
+            $article_title = trim($article_query->find('a:first')->text());
+
+            // Article internal link
+            $article_internal_link = $article_query->find('a:first')->attr('href');
+
+            if (strpos($article_internal_link, $sourceHost) === false) {
+                // Remove beginning slash
+                substr($article_internal_link, 0, 1) == '/' ? $article_internal_link = substr_replace($article_internal_link, "", 0, 1) : '';
+
+                $article_internal_link = $sourceHomepage . $article_internal_link;
+            }
+
+            $article_internal_link .= "/contact-details";
+
+            // Fetch article external link
+            //sleep($sleep);
+
+            $articlePage = download($article_internal_link);
+
+            $article_page_document = phpQuery::newDocument($articlePage);
+
+            $article_external_link = $article_page_document->find('.phone-and-website > span:eq(1) > a.ga-track')->text();
+
+            if (!empty($category) || !empty($article_title) || !empty($article_external_link)) {
+                // Write to DB
+                $query = $pdo->prepare('INSERT INTO `links` (`parser_type`, `applegate_category`, `applegate_company`, `applegate_website_link`) VALUES (?, ?, ?, ?)');
+                $query->execute(array(
+                    'applegate', $category ?: '', $article_title ?: '', $article_external_link ?: '',
+                ));
+            }
+
+            // Clean up
+            unset($article_query, $article_title, $article_internal_link, $articlePage, $article_page_document, $article_external_link);
+        }
+    }
+
+    $time += microtime(true);
+
+    echo "<br /> <b>Runtime total: </b>{$time} seconds.";
 }
