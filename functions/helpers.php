@@ -353,7 +353,7 @@ function collectAppleGateArticlesPages($sourceUrl, $sleep) {
     // Download the page
     $categoryPage = download($sourceUrl);
 
-    // Inject phpQuery into downloaded page
+    // Load phpQuery document
     $document = phpQuery::newDocument($categoryPage);
 
     // Fetch the highest pagination value
@@ -363,6 +363,9 @@ function collectAppleGateArticlesPages($sourceUrl, $sleep) {
     for ($i = 1; $i <= trim($highestPaginationValue); $i++) {
         array_push($urls, $sourceUrl . "?page={$i}&size=1000");
     }
+
+    // Clean-up phpQuery document
+    $document->unloadDocument();
 
     return $urls;
 }

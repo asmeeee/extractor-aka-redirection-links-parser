@@ -651,7 +651,7 @@ function processAppleGate($time, $url_value) {
     global $pdo;
 
     // Show progress?
-    $showProgress = false;
+    $showProgress = true;
 
     // Progress
     if ($showProgress) {
@@ -746,8 +746,10 @@ function processAppleGate($time, $url_value) {
 
         $sourcePage = download($articlesPageUrl);
 
+        // Load phpQuery document
         $page_document = phpQuery::newDocument($sourcePage);
 
+        // Apply phpQuery selectors
         $articles = $page_document->find('ul.supplier-list > li.supplier');
 
         // Articles per page count
@@ -766,15 +768,14 @@ function processAppleGate($time, $url_value) {
                 flush();
             }
 
-            // Fetch article data
-            $article_query = pq($article);
+            // Inject phpQuery
+            $article_block_document = pq($article);
 
-            // Article title
-            $article_title = trim($article_query->find('a:first')->text());
+            // Apply phpQuery selectors
+            $article_title = trim($article_block_document->find('a:first')->text());
+            $article_internal_link = $article_block_document->find('a:first')->attr('href');
 
-            // Article internal link
-            $article_internal_link = $article_query->find('a:first')->attr('href');
-
+            // Prepare single article URL
             if (strpos($article_internal_link, $sourceHost) === false) {
                 // Remove beginning slash
                 substr($article_internal_link, 0, 1) == '/' ? $article_internal_link = substr_replace($article_internal_link, "", 0, 1) : '';
@@ -787,11 +788,17 @@ function processAppleGate($time, $url_value) {
             // Fetch article external link
             //sleep($sleep);
 
+            // Download single article page HTMl
             $articlePage = download($article_internal_link);
 
+            // Load phpQuery document
             $article_page_document = phpQuery::newDocument($articlePage);
 
+            // Apply phpQuery selectors
             $article_external_link = $article_page_document->find('.phone-and-website > span:eq(1) > a.ga-track')->text();
+
+            // Clean-up phpQuery document
+            $article_page_document->unloadDocument();
 
             if (!empty($category) || !empty($article_title) || !empty($article_external_link)) {
                 // Write to DB
@@ -800,10 +807,10 @@ function processAppleGate($time, $url_value) {
                     'applegate', $category ?: '', $article_title ?: '', $article_external_link ?: '',
                 ));
             }
-
-            // Clean up
-            unset($article_query, $article_title, $article_internal_link, $articlePage, $article_page_document, $article_external_link);
         }
+
+        // Clean-up phpQuery document
+        $page_document->unloadDocument();
     }
 
     $time += microtime(true);
