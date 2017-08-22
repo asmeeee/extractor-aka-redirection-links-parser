@@ -650,6 +650,53 @@ function processAuriga($time, $url_value) {
 function processAppleGate($time, $url_value) {
     global $pdo;
 
+    // Check for other functionality such as formatting the external links
+    if (isset($_POST['formatLinks'])) {
+        $externalLinksQuery  = "SELECT `id`, `applegate_website_link` FROM `links` WHERE `parser_type` = :parser_type";
+        $externalLinksQuery .= " AND `applegate_website_link` NOT IN ('', 'http://', 'https://') GROUP BY `applegate_website_link`";
+
+        $externalLinksPreparedQuery = $pdo->prepare($externalLinksQuery);
+        $externalLinksPreparedQuery->execute([
+            ':parser_type' => "applegate",
+        ]);
+
+        $externalLinksResult = $externalLinksPreparedQuery->fetchAll();
+
+        foreach ($externalLinksResult as $externalLink) {
+            $externalLink['applegate_website_link'] = trim($externalLink['applegate_website_link']);
+
+            if (
+                mb_substr($externalLink['applegate_website_link'], 0, 7) !== "http://" &&
+                mb_substr($externalLink['applegate_website_link'], 0, 8) !== "https://" &&
+                mb_substr($externalLink['applegate_website_link'], 0, 4) !== "www."
+            ) {
+                $transformedExternalLink = "http://www.{$externalLink['applegate_website_link']}";
+            } else {
+                $parsedExternalLink = parse_url($externalLink['applegate_website_link']);
+
+                $transformedExternalLink = preg_replace('#^www\.(.+\.)#i', '$1', "{$parsedExternalLink['host']}{$parsedExternalLink['path']}");
+
+                if (!empty($parsedExternalLink['scheme'])) {
+                    $transformedExternalLink = "{$parsedExternalLink['scheme']}://www.{$transformedExternalLink}";
+                } else {
+                    $transformedExternalLink = "http://www.{$transformedExternalLink}";
+                }
+
+                if (!empty($parsedExternalLink['query'])) {
+                    $transformedExternalLink .= "?{$parsedExternalLink['query']}";
+                }
+            }
+
+            $query = $pdo->prepare('UPDATE `links` SET `applegate_website_link` = :link WHERE `id` = :id');
+            $query->execute([
+                ':link' => $transformedExternalLink,
+                ':id' => $externalLink['id'],
+            ]);
+        }
+
+        die("Success.");
+    }
+
     // Show progress?
     $showProgress = true;
 

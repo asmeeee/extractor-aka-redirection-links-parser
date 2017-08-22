@@ -147,6 +147,7 @@
 
                     <div class="form-group" style="margin-left: 10px;">
                         <input type="submit" class="btn btn-primary">
+                        <input type="submit" class="btn btn-info" name="formatLinks" value="Format external links">
                     </div>
                 </form>
             </div>
