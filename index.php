@@ -145,9 +145,9 @@
                         </select>
                     </div>
 
-                    <div class="form-group" style="margin-left: 10px;">
+                    <div class="form-group" style="margin-top: 10px;">
                         <input type="submit" class="btn btn-primary">
-                        <input type="submit" class="btn btn-info" name="formatLinks" value="Format external links">
+                        <input type="submit" class="btn btn-success" name="downloadLinks" value="Download formatted links">
                     </div>
                 </form>
             </div>

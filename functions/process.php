@@ -650,8 +650,13 @@ function processAuriga($time, $url_value) {
 function processAppleGate($time, $url_value) {
     global $pdo;
 
-    // Check for other functionality such as formatting the external links
-    if (isset($_POST['formatLinks'])) {
+    // Check for other functionality such as formatting the external links or downloading them
+    if (isset($_POST['downloadLinks'])) {
+        $filename = 'applegate-' . Carbon::today()->toDateString() . '-' . rand(0, 999);
+        $file = fopen(dirname(__DIR__) . '/files/' . $filename . '.txt', 'w') or die('Unable to open file!');
+
+        $transformedExternalLinks = [];
+
         $externalLinksQuery  = "SELECT `id`, `applegate_website_link` FROM `links` WHERE `parser_type` = :parser_type";
         $externalLinksQuery .= " AND `applegate_website_link` NOT IN ('', 'http://', 'https://') GROUP BY `applegate_website_link`";
 
@@ -663,38 +668,37 @@ function processAppleGate($time, $url_value) {
         $externalLinksResult = $externalLinksPreparedQuery->fetchAll();
 
         foreach ($externalLinksResult as $externalLink) {
-            $externalLink['applegate_website_link'] = trim($externalLink['applegate_website_link']);
+            $transformedExternalLink = trim(trim($externalLink['applegate_website_link']), "/");
 
-            if (
-                mb_substr($externalLink['applegate_website_link'], 0, 7) !== "http://" &&
-                mb_substr($externalLink['applegate_website_link'], 0, 8) !== "https://" &&
-                mb_substr($externalLink['applegate_website_link'], 0, 4) !== "www."
-            ) {
-                $transformedExternalLink = "http://www.{$externalLink['applegate_website_link']}";
-            } else {
-                $parsedExternalLink = parse_url($externalLink['applegate_website_link']);
-
-                $transformedExternalLink = preg_replace('#^www\.(.+\.)#i', '$1', "{$parsedExternalLink['host']}{$parsedExternalLink['path']}");
-
-                if (!empty($parsedExternalLink['scheme'])) {
-                    $transformedExternalLink = "{$parsedExternalLink['scheme']}://www.{$transformedExternalLink}";
-                } else {
-                    $transformedExternalLink = "http://www.{$transformedExternalLink}";
-                }
-
-                if (!empty($parsedExternalLink['query'])) {
-                    $transformedExternalLink .= "?{$parsedExternalLink['query']}";
-                }
+            // Prepend http(s) if not present for parse_url function
+            if (!preg_match('#^http(s)?://#', $transformedExternalLink)) {
+                $transformedExternalLink = "http://{$transformedExternalLink}";
             }
 
-            $query = $pdo->prepare('UPDATE `links` SET `applegate_website_link` = :link WHERE `id` = :id');
-            $query->execute([
-                ':link' => $transformedExternalLink,
-                ':id' => $externalLink['id'],
-            ]);
+            $parsedExternalLink = parse_url($transformedExternalLink);
+
+            // Replace following occurrences
+            $search = ['/^WWW\./', '/^Www\./', '/^ww\./', '/^www\./', '/^www2\./', '/^wwww\./', '/^wwwww\./', '/^www/', '/^wwww/', '/^wwwww/'];
+            $replace = [''];
+            $transformedExternalLink = trim(trim(preg_replace($search, $replace, trim(trim($parsedExternalLink['host']), "-"))), "-");
+
+            $transformedExternalLink = "{$parsedExternalLink['scheme']}://www.{$transformedExternalLink}";
+
+            if (filter_var($transformedExternalLink, FILTER_VALIDATE_URL)) {
+                if (!in_array($transformedExternalLink, $transformedExternalLinks)) {
+                    $transformedExternalLinks[] = $transformedExternalLink;
+
+                    fwrite($file, $transformedExternalLink . "\n");
+                }
+            }
         }
 
-        die("Success.");
+        fclose($file);
+
+        $file_url = (!empty($_SERVER['HTTPS'])) ? "https://" . $_SERVER['SERVER_NAME'] . $_SERVER['REQUEST_URI'] : "http://" . $_SERVER['SERVER_NAME'] . $_SERVER['REQUEST_URI'];
+        $file_url = dirname(dirname($file_url)) . "/files/" . $filename . ".txt";
+
+        die($file_url);
     }
 
     // Show progress?
